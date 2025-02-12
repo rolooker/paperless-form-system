@@ -4,26 +4,33 @@ import pandas as pd
 
 # SQLite Database Setup
 # 初始化資料庫，建立 forms 資料表
+
 def init_db():
     conn = sqlite3.connect('production_forms.db')  # 連接 SQLite 資料庫
     c = conn.cursor()
+
+    # 刪除舊資料表（如果存在）
+    c.execute('''DROP TABLE IF EXISTS forms''')
+
+    # 建立新的資料表，包含開始時間與結束時間
     c.execute('''CREATE TABLE IF NOT EXISTS forms
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   date TEXT NOT NULL,
-                  time TEXT NOT NULL,
+                  start_time TEXT NOT NULL,
+                  end_time TEXT NOT NULL,
                   product TEXT NOT NULL,
                   quantity INTEGER NOT NULL,
                   signature TEXT NOT NULL,
-                  notes TEXT)''')  # 建立表單資料表
+                  notes TEXT)''')
     conn.commit()
     conn.close()
 
 # 將表單資料寫入資料庫
-def insert_form(date, time, product, quantity, signature, notes):
+def insert_form(date, start_time, end_time, product, quantity, signature, notes):
     conn = sqlite3.connect('production_forms.db')
     c = conn.cursor()
-    c.execute("INSERT INTO forms (date, time, product, quantity, signature, notes) VALUES (?, ?, ?, ?, ?, ?)",
-              (date, time, product, quantity, signature, notes))
+    c.execute("INSERT INTO forms (date, start_time, end_time, product, quantity, signature, notes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+              (date, start_time, end_time, product, quantity, signature, notes))
     conn.commit()
     conn.close()
 
@@ -45,9 +52,8 @@ choice = st.sidebar.selectbox("選擇操作", menu)
 if choice == "填寫表單":
     st.header("✍️ 填寫生產表單")
     date = st.date_input("生產日期")
-    hour = st.selectbox("時", list(range(0, 24)))
-    minute = st.selectbox("分", list(range(0, 60, 5)))  # 以 5 分鐘為間隔
-    time = f"{hour:02d}:{minute:02d}"
+    start_time = st.text_input("開始時間 (HH:MM)")
+    end_time = st.text_input("結束時間 (HH:MM)")
 
     products = [
         "零零三 薄 透氧日拋隱形眼鏡",
@@ -61,8 +67,8 @@ if choice == "填寫表單":
     notes = st.text_area("備註欄")
 
     if st.button("提交表單"):
-        if signature and product and quantity:
-            insert_form(date, time, product, quantity, signature, notes)
+        if signature and product and quantity and start_time and end_time:
+            insert_form(date, start_time, end_time, product, quantity, signature, notes)
             st.success("✅ 表單已成功提交！")
         else:
             st.warning("⚠️ 請完整填寫所有欄位！")
@@ -71,7 +77,7 @@ elif choice == "查看表單紀錄":
     st.header("📊 表單紀錄")
     forms = get_forms()
     if forms:
-        df = pd.DataFrame(forms, columns=["ID", "生產日期", "時間", "品項名稱", "生產數量", "人員簽名", "備註"])
+        df = pd.DataFrame(forms, columns=["ID", "生產日期", "開始時間", "結束時間", "品項名稱", "生產數量", "人員簽名", "備註"])
         st.dataframe(df)
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button("📥 下載 CSV", csv, "forms_record.csv", "text/csv")
