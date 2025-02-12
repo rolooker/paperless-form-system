@@ -76,7 +76,7 @@ elif choice == "查看表單紀錄":
     if forms:
         df = pd.DataFrame(forms, columns=["ID", "生產日期", "開始時間", "結束時間", "品項名稱", "生產數量", "人員簽名", "備註"])
         st.dataframe(df)
-        csv = df.to_csv(index=False).encode('utf-8')
+        csv = df.to_csv(index=False).encode('utf-8-sig')  # 使用 utf-8-sig 編碼
         st.download_button("📥 下載 CSV", csv, "forms_record.csv", "text/csv")
     else:
         st.info("目前尚無表單紀錄。")
