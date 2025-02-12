@@ -9,10 +9,7 @@ def init_db():
     conn = sqlite3.connect('production_forms.db')  # 連接 SQLite 資料庫
     c = conn.cursor()
 
-    # 刪除舊資料表（如果存在）
-    c.execute('''DROP TABLE IF EXISTS forms''')
-
-    # 建立新的資料表，包含開始時間與結束時間
+    # 建立新的資料表（僅當不存在時）
     c.execute('''CREATE TABLE IF NOT EXISTS forms
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   date TEXT NOT NULL,
