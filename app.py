@@ -40,6 +40,15 @@ def get_forms():
     conn.close()
     return forms
 
+# 刪除指定表單紀錄
+def delete_forms(selected_ids):
+    conn = sqlite3.connect('production_forms.db')
+    c = conn.cursor()
+    for form_id in selected_ids:
+        c.execute("DELETE FROM forms WHERE id = ?", (form_id,))
+    conn.commit()
+    conn.close()
+
 # Streamlit 應用程式
 st.title("📋 生產表單無紙化系統")
 
@@ -86,6 +95,13 @@ elif choice == "查看表單紀錄":
     forms = get_forms()
     if forms:
         df = pd.DataFrame(forms, columns=["ID", "生產日期", "開始時間", "結束時間", "品項名稱", "生產數量", "人員簽名", "備註"])
+        selected_rows = st.multiselect("選擇要刪除的資料", df.index, format_func=lambda x: f"ID {df.iloc[x, 0]} - {df.iloc[x, 4]}")
+        if st.button("刪除選定的表單"):
+            if selected_rows:
+                delete_forms(df.iloc[selected_rows, 0].tolist())
+                st.success("✅ 選定的表單已刪除！請重新整理頁面查看更新。")
+            else:
+                st.warning("⚠️ 請選擇要刪除的表單！")
         st.dataframe(df)
         csv = df.to_csv(index=False).encode('utf-8-sig')  # 使用 utf-8-sig 編碼
         st.download_button("📥 下載 CSV", csv, "forms_record.csv", "text/csv")
