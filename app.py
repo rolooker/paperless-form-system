@@ -56,6 +56,24 @@ def get_forms():
     conn.close()
     return forms
 
+# 刪除指定表單
+def delete_forms(selected_ids):
+    conn = sqlite3.connect('production_forms.db')
+    c = conn.cursor()
+    for form_id in selected_ids:
+        c.execute("DELETE FROM forms WHERE id = ?", (form_id,))
+    conn.commit()
+    conn.close()
+
+# 刪除所有表單並重置 ID
+def delete_all_forms():
+    conn = sqlite3.connect('production_forms.db')
+    c = conn.cursor()
+    c.execute("DELETE FROM forms")  # 清空表單資料
+    c.execute("UPDATE SQLITE_SEQUENCE SET SEQ=0 WHERE NAME='forms'")  # 重置 ID
+    conn.commit()
+    conn.close()
+
 # Streamlit 應用程式
 st.title("📋 生產表單無紙化系統")
 
@@ -110,19 +128,23 @@ elif choice == "查看表單紀錄":
     forms = get_forms()
     if forms:
         df = pd.DataFrame(forms, columns=["ID", "生產日期", "開始時間", "結束時間", "經過時間(分鐘)", "生產效率(件/分鐘)", "品項名稱", "生產數量", "人員簽名", "備註"])
-        avg_time = df["經過時間(分鐘)"].mean()
-        avg_efficiency = df["生產效率(件/分鐘)"].mean()
-        
-        st.metric(label="平均生產時間 (分鐘)", value=f"{avg_time:.2f}" if not pd.isna(avg_time) else "N/A")
-        st.metric(label="平均生產效率 (件/分鐘)", value=f"{avg_efficiency:.2f}" if not pd.isna(avg_efficiency) else "N/A")
-        
         st.dataframe(df)
         csv = df.to_csv(index=False).encode('utf-8-sig')  # 使用 utf-8-sig 編碼
         st.download_button("📥 下載 CSV", csv, "forms_record.csv", "text/csv")
+        
+        selected_rows = st.multiselect("選擇要刪除的資料", df.index, format_func=lambda x: f"ID {df.iloc[x, 0]} - {df.iloc[x, 6]}")
+        if st.button("刪除選定的表單"):
+            if selected_rows:
+                delete_forms(df.iloc[selected_rows, 0].tolist())
+                st.success("✅ 選定的表單已刪除！請重新整理頁面查看更新。")
+            else:
+                st.warning("⚠️ 請選擇要刪除的表單！")
+        
+        if st.button("⚠️ 清空所有表單 (重置 ID)"):
+            delete_all_forms()
+            st.success("✅ 所有表單已刪除，ID 已重置！請重新整理頁面查看更新。")
     else:
         st.info("目前尚無表單紀錄。")
 
 # 初始化資料庫
 init_db()
-
-
