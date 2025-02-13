@@ -1,6 +1,7 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
+from datetime import datetime
 
 # SQLite Database Setup
 # 初始化資料庫，建立 forms 資料表
@@ -15,6 +16,7 @@ def init_db():
                   date TEXT NOT NULL,
                   start_time TEXT NOT NULL,
                   end_time TEXT NOT NULL,
+                  elapsed_time INTEGER NOT NULL,
                   product TEXT NOT NULL,
                   quantity INTEGER NOT NULL,
                   signature TEXT NOT NULL,
@@ -22,12 +24,19 @@ def init_db():
     conn.commit()
     conn.close()
 
+# 計算經過時間（分鐘）
+def calculate_elapsed_time(start_time, end_time):
+    start_dt = datetime.strptime(start_time, "%H:%M")
+    end_dt = datetime.strptime(end_time, "%H:%M")
+    elapsed_minutes = int((end_dt - start_dt).total_seconds() / 60)
+    return elapsed_minutes
+
 # 將表單資料寫入資料庫
-def insert_form(date, start_time, end_time, product, quantity, signature, notes):
+def insert_form(date, start_time, end_time, elapsed_time, product, quantity, signature, notes):
     conn = sqlite3.connect('production_forms.db')
     c = conn.cursor()
-    c.execute("INSERT INTO forms (date, start_time, end_time, product, quantity, signature, notes) VALUES (?, ?, ?, ?, ?, ?, ?)",
-              (date, start_time, end_time, product, quantity, signature, notes))
+    c.execute("INSERT INTO forms (date, start_time, end_time, elapsed_time, product, quantity, signature, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+              (date, start_time, end_time, elapsed_time, product, quantity, signature, notes))
     conn.commit()
     conn.close()
 
@@ -91,6 +100,8 @@ if choice == "填寫表單":
             st.error("⚠️ 請選擇生產日期！")
         elif not start_time or not end_time:
             st.error("⚠️ 請輸入完整的開始與結束時間！")
+        elif start_time and end_time and start_time >= end_time:
+            st.error("⚠️ 結束時間不能小於或等於開始時間！")
         elif not product:
             st.error("⚠️ 請選擇品項名稱！")
         elif quantity is None:
@@ -98,26 +109,17 @@ if choice == "填寫表單":
         elif not signature:
             st.error("⚠️ 請輸入人員電子簽名！")
         else:
-            insert_form(date, start_time, end_time, product, quantity, signature, notes)
+            elapsed_time = calculate_elapsed_time(start_time, end_time)
+            insert_form(date, start_time, end_time, elapsed_time, product, quantity, signature, notes)
             st.success("✅ 表單已成功提交！")
 
 elif choice == "查看表單紀錄":
     st.header("📊 表單紀錄")
     forms = get_forms()
     if forms:
-        df = pd.DataFrame(forms, columns=["ID", "生產日期", "開始時間", "結束時間", "品項名稱", "生產數量", "人員簽名", "備註"])
-        selected_rows = st.multiselect("選擇要刪除的資料", df.index, format_func=lambda x: f"ID {df.iloc[x, 0]} - {df.iloc[x, 4]}")
-        if st.button("刪除選定的表單"):
-            if selected_rows:
-                delete_forms(df.iloc[selected_rows, 0].tolist())
-                st.success("✅ 選定的表單已刪除！請重新整理頁面查看更新。")
-            else:
-                st.warning("⚠️ 請選擇要刪除的表單！")
-        
-        if st.button("⚠️ 清空所有表單 (重置 ID)"):
-            delete_all_forms()
-            st.success("✅ 所有表單已刪除，ID 已重置！請重新整理頁面查看更新。")
-        
+        df = pd.DataFrame(forms, columns=["ID", "生產日期", "開始時間", "結束時間", "經過時間(分鐘)", "品項名稱", "生產數量", "人員簽名", "備註"])
+        avg_time = df["經過時間(分鐘)"].mean()
+        st.metric(label="平均生產時間 (分鐘)", value=f"{avg_time:.2f}" if not pd.isna(avg_time) else "N/A")
         st.dataframe(df)
         csv = df.to_csv(index=False).encode('utf-8-sig')  # 使用 utf-8-sig 編碼
         st.download_button("📥 下載 CSV", csv, "forms_record.csv", "text/csv")
